@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.lang.ref.SoftReference;
 import java.util.Optional;
 
 @RestController
@@ -22,10 +23,11 @@ public class UserController {
     private final UserRepository userRepo;
 
     @GetMapping("/me")
-    public ResponseEntity<UserDto> me(Authentication authentication){
+    public ResponseEntity<UserDto> me(Authentication authentication) {
         Optional<User> optionalUser = userRepo.findByEmail(authentication.getName());
-
-        if(optionalUser.isEmpty()) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        if (optionalUser.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
 
         UserDto dto = new UserDto();
         dto.setId(optionalUser.get().getId());

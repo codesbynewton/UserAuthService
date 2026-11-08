@@ -9,6 +9,7 @@ import dev.hari.userauthservice.service.AuthService;
 import dev.hari.userauthservice.service.JwtService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,27 +23,27 @@ public class AuthController {
     private final AuthService authService;
     private final JwtService jwtService;
 
-    @PostMapping
-    public ResponseEntity<UserDto> signUp(@RequestBody AuthRequest authRequest){
-
-        User user = authService.signUp(authRequest.getEmail(), authRequest.getPassword());
-
-        if(user == null) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    @PostMapping("/signup")
+    public ResponseEntity<UserDto> signUp(@Valid @RequestBody AuthRequest authRequest) {
+        User user = authService.signUp(authRequest.getEmail(),
+                authRequest.getPassword());
+        if(user == null){
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
         }
 
         UserDto userDto = new UserDto();
         userDto.setEmail(user.getEmail());
         userDto.setRole(user.getRole());
         userDto.setId(user.getId());
-
-        return new ResponseEntity<>(userDto, HttpStatus.OK);
+        return new ResponseEntity<>(userDto, HttpStatus.CREATED);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody AuthRequest authRequest){
-        String token = authService.login(authRequest.getEmail(), authRequest.getPassword());
-        if(token == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+    public ResponseEntity<LoginResponse> login(@RequestBody AuthRequest request) {
+        String token = authService.login(request.getEmail(), request.getPassword());
+        if (token == null) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
 
         LoginResponse response = new LoginResponse();
         response.setToken(token);
@@ -50,18 +51,24 @@ public class AuthController {
     }
 
     @GetMapping("/validateToken")
-    public ResponseEntity<UserDto> validateToken(@RequestHeader("Authorization") String header){
-        if(!header.startsWith("Bearer ")) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-
-        try{
-            Claims claims = jwtService.parseToken(header.substring("Bearer ".length()));
-            UserDto userDto = new UserDto();
-            userDto.setEmail(claims.getSubject());
-            userDto.setRole(Role.valueOf(claims.get("Role", String.class)));
-            return ResponseEntity.ok(userDto);
-
-        } catch (JwtException ex){
+    public ResponseEntity<UserDto> validateToken(@RequestHeader("Authorization") String header) {
+        if (!header.startsWith("Bearer ")) {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
+
+        try {
+            Claims claims = jwtService.parseToken(header.substring("Bearer ".length()));
+            UserDto dto = new UserDto();
+            dto.setEmail(claims.getSubject());
+            dto.setRole(Role.valueOf(claims.get("role", String.class)));
+            return ResponseEntity.ok(dto);
+        } catch (JwtException e) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @GetMapping("/healthcheck")
+    public ResponseEntity<String> healthCheck() {
+        return new ResponseEntity<>("OK", HttpStatus.OK);
     }
 }

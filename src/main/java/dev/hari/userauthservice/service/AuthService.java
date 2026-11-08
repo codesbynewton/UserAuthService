@@ -5,9 +5,11 @@ import dev.hari.userauthservice.model.Role;
 import dev.hari.userauthservice.model.User;
 import dev.hari.userauthservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.net.PasswordAuthentication;
 import java.util.Optional;
 
 @Service
@@ -18,25 +20,24 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public User signUp(String email, String password){
-        if(userRepository.existsByEmail(email)) return null;
+    public User signUp(String email, String password) {
+        if(userRepository.existsByEmail(email)) {
+            return null;
+        }
 
         User user = new User();
-
         user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(password));
+        user.setPasswordHash(passwordEncoder.encode(password));
         user.setRole(Role.USER);
-
         return userRepository.save(user);
-
-
     }
 
-    public String login(String email, String password){
-        Optional<User> user = userRepository.findByEmail(email);
-        if(user.isEmpty() || !passwordEncoder.matches(password, user.get().getPassword())) return null;
-
-        return jwtService.generateToken(user.get());
+    public String login(String email, String password) {
+        Optional<User> optionalUser = userRepository.findByEmail(email);
+        if (optionalUser.isEmpty()
+                || !passwordEncoder.matches(password, optionalUser.get().getPasswordHash())) {
+            return null;
+        }
+        return jwtService.generateToken(optionalUser.get());
     }
-
 }

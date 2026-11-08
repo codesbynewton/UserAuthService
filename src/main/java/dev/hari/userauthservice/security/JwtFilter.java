@@ -8,7 +8,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.task.TaskExecutionProperties;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -18,9 +17,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.lang.ref.SoftReference;
 import java.util.List;
 
-@Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
@@ -32,21 +31,22 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            try {
+                Claims claims = jwtService.parseToken(header.substring("Bearer ".length()));
+                List<GrantedAuthority> grantedAuthorities = List.of(
+                        new SimpleGrantedAuthority("ROLE_" + claims.get("role").toString())
+                );
 
-        try{
-            Claims claims = jwtService.parseToken(header);
+                Authentication authentication =
+                        new UsernamePasswordAuthenticationToken(claims.getSubject(), null, grantedAuthorities);
 
-            List<GrantedAuthority> grantedAuthorities = List.of(
-                    new SimpleGrantedAuthority("Role_" + claims.get("role").toString()));
-
-            Authentication authentication =
-                    new UsernamePasswordAuthenticationToken(claims, null, grantedAuthorities);
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        } catch (JwtException ex){
-            SecurityContextHolder.clearContext();
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
+            } catch (JwtException e) {
+                SecurityContextHolder.clearContext();
+            }
         }
         filterChain.doFilter(request, response);
-
     }
 }
